@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      vllm_version:
+        description: "vLLM base image tag (e.g. latest, v0.8.5)"
+        required: false
+        default: "latest"
 
 env:
   REGISTRY: ghcr.io
@@ -14,26 +19,14 @@ env:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
 
     steps:
-      - name: Free disk space
-        uses: jlumbroso/free-disk-space@main
-        with:
-          tool-cache: false
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          docker-images: false
-          swap-storage: true
-
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -61,13 +54,12 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: docker/Dockerfile
-          target: vllm-openai
+          file: docker/Dockerfile.arctic
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            INSTALL_ARCTIC_INFERENCE=true
+            VLLM_VERSION=${{ inputs.vllm_version || 'latest' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -78,13 +70,11 @@ jobs:
         run: |
           PACKAGE_NAME=$(echo "${{ github.event.repository.name }}" | tr '[:upper:]' '[:lower:]')
           OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          # For user-owned repos
           gh api \
             --method PUT \
             -H "Accept: application/vnd.github+json" \
             /user/packages/container/${PACKAGE_NAME}/visibility \
             -f visibility=public || \
-          # For org-owned repos
           gh api \
             --method PUT \
             -H "Accept: application/vnd.github+json" \

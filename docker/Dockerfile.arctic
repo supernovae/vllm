@@ -1,0 +1,6 @@
+ARG VLLM_VERSION=latest
+FROM vllm/vllm-openai:${VLLM_VERSION}
+
+RUN pip install --no-cache-dir "arctic-inference[vllm]"
+
+ENTRYPOINT ["vllm", "serve"]
