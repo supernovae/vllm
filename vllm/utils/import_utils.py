@@ -402,9 +402,18 @@ def _has_module(module_name: str) -> bool:
     return importlib.util.find_spec(module_name) is not None
 
 
+@cache
 def has_deep_ep() -> bool:
-    """Whether the optional `deep_ep` package is available."""
-    return _has_module("deep_ep")
+    """Whether the optional `deep_ep` package is available and loadable.
+
+    Uses an actual import rather than find_spec because deep_ep has native
+    extensions linked against NVSHMEM which may not be present at runtime.
+    """
+    try:
+        import deep_ep  # noqa: F401
+        return True
+    except (ImportError, OSError):
+        return False
 
 
 def has_deep_gemm() -> bool:
